@@ -1,0 +1,19 @@
+# Dados (nunca versionar)
+*.csv
+*.pt
+*.npz
+*.pkl
+*.h5
+*.parquet
+
+# Outputs grandes
+results/*.png
+results/*.pdf
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
