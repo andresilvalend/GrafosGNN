@@ -1,0 +1,232 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}{Definition}
+
+\title{BCCS: Formal Definition and NP-Hardness Proof\\[6pt]
+\large Supplementary Material for ICDM 2026 Submission}
+\author{Andre da Costa Silva}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+%% ---------------------------------------------------------------
+\section{Problem Definition}
+%% ---------------------------------------------------------------
+
+\begin{definition}[Budgeted Connected Case Segmentation --- BCCS]
+\label{def:bccs}
+Let $G=(V,E)$ be an undirected graph, $L\subseteq E$ a set of
+\emph{target edges}, and $B\in\mathbb{Z}^+$ a \emph{budget}.
+A \textbf{case assignment} is a partition
+$\mathcal{P}=\{C_1,\dots,C_m\}$ of~$V$ into pairwise-disjoint,
+non-empty subsets called \emph{cases}.
+
+For each case~$C_i$ define the \textbf{induced edge set}
+\[
+  E(C_i)=\bigl\{(u,v)\in E : u\in C_i \text{ and } v\in C_i\bigr\}.
+\]
+The \textbf{coverage} of~$\mathcal{P}$ is
+\[
+  \operatorname{Cov}(\mathcal{P})
+  =\bigl|\{(u,v)\in L:\exists\, C_i\in\mathcal{P}
+            \text{ with } u,v\in C_i\}\bigr|.
+\]
+The \textbf{BCCS optimisation problem} is
+\[
+  \max_{\mathcal{P}}\;\operatorname{Cov}(\mathcal{P})
+  \qquad\text{s.t.}\quad |E(C_i)|\le B
+  \;\;\forall\, C_i\in\mathcal{P}.
+\]
+The \textbf{BCCS decision problem} asks: given $(G,L,B,\tau)$, does
+there exist a partition~$\mathcal{P}$ with
+$|E(C_i)|\le B$ for all~$i$ and
+$\operatorname{Cov}(\mathcal{P})\ge\tau$?
+\end{definition}
+
+\paragraph{Interpretation in AML transaction monitoring.}
+In anti-money laundering (AML) systems, $G$~represents the full
+transaction graph, $L$~is the set of top-$k$ highest-risk edges
+identified by a GNN scorer, and $B$~limits the number of edges an
+analyst can review in a single investigation case.  BCCS asks how to
+group transactions into bounded investigation cases to maximise the
+number of flagged edges that are actually reviewable.
+
+%% ---------------------------------------------------------------
+\section{NP-Completeness}
+%% ---------------------------------------------------------------
+
+\begin{theorem}\label{thm:npc}
+BCCS is NP-complete.
+\end{theorem}
+
+\begin{proof}
+
+\subsection*{Membership in NP}
+
+Given a partition $\mathcal{P}=\{C_1,\dots,C_m\}$, we can verify in
+$O(|V|+|E|)$ time that (i)~$|E(C_i)|\le B$ for every~$i$
+and (ii)~$\operatorname{Cov}(\mathcal{P})\ge\tau$, by building a
+node-to-case lookup table and scanning all edges once.
+Hence $\text{BCCS}\in\text{NP}$.
+
+\subsection*{NP-Hardness (reduction from Maximum Independent Set)}
+
+We reduce from the \textsc{Maximum Independent Set} problem (MIS),
+known to be NP-hard~\cite{karp1972}.
+
+\medskip\noindent
+\textbf{MIS.}\;
+Given a graph $H=(V_H,E_H)$ and an integer~$k$, does~$H$ contain an
+independent set of size~$\ge k$?
+
+\medskip\noindent
+\textbf{Construction.}\;
+Given a MIS instance $(H,k)$, build the BCCS instance
+$(G,L,B,\tau)$ as follows.
+
+\begin{enumerate}
+\item \emph{Add a goal node.}
+      Let~$g$ be a fresh node; set $V=V_H\cup\{g\}$.
+
+\item \emph{Edges.}
+      $E = E_H \;\cup\; \{(v,g) : v\in V_H\}$.
+
+\item \emph{Target edges.}
+      $L = \{(v,g) : v\in V_H\}$.
+      Only the edges to~$g$ are targets.
+
+\item \emph{Budget and threshold.}
+      $B = \tau = k$.
+\end{enumerate}
+
+The construction runs in $O(|V_H|+|E_H|)$ time.
+
+\medskip\noindent
+\textbf{Intuition.}\;
+Covering a target edge $(v,g)$ requires~$v$ and~$g$ in the same case.
+Because~$g$ belongs to a single case, all ``covered'' nodes share that
+case with~$g$.  The non-target edges from~$E_H$ between those nodes
+consume budget, so only independent sets fit within budget~$k$.
+
+\medskip\noindent
+\textbf{Forward direction ($\Rightarrow$).}\;
+Suppose~$H$ has an independent set $S\subseteq V_H$ with $|S|=k$.
+Define the partition $C_1=S\cup\{g\}$; every remaining node forms a
+singleton case.
+
+\begin{itemize}
+\item \emph{Budget of~$C_1$:}\;
+      $E(C_1)=E_H(S)\cup\{(v,g):v\in S\}$.
+      Since~$S$ is independent, $E_H(S)=\emptyset$, so
+      $|E(C_1)|=|S|=k=B$.\;\checkmark
+
+\item \emph{Singletons:}\; $0$~edges each.\;\checkmark
+
+\item \emph{Coverage:}\;
+      Each $v\in S$ is co-located with~$g$, giving
+      $\operatorname{Cov}=k=\tau$.\;\checkmark
+\end{itemize}
+
+\medskip\noindent
+\textbf{Backward direction ($\Leftarrow$).}\;
+Suppose a partition~$\mathcal{P}$ achieves
+$\operatorname{Cov}(\mathcal{P})\ge k$.
+Let~$C_g$ be the case containing~$g$ and set
+$S=C_g\cap V_H$.
+
+A target edge $(v,g)$ is covered if and only if $v\in S$, so
+$\operatorname{Cov}(\mathcal{P})=|S|\ge k$.
+
+The induced edges of~$C_g$ are
+\[
+  E(C_g) = E_H(S)\;\cup\;\{(v,g):v\in S\},
+\]
+hence $|E(C_g)|=|E_H(S)|+|S|$.
+The budget constraint gives
+\[
+  |E_H(S)|+|S|\;\le\; B = k.
+\]
+Since $|S|\ge k$, we obtain $|E_H(S)|\le k-|S|\le 0$.
+Therefore $|E_H(S)|=0$ and $|S|=k$:
+the set~$S$ is an independent set of size~$k$ in~$H$.\;\checkmark
+
+\medskip
+This completes the reduction.
+\end{proof}
+
+%% ---------------------------------------------------------------
+\section{Consequences}
+%% ---------------------------------------------------------------
+
+\subsection{Inapproximability}
+
+The reduction preserves the objective value exactly
+($\operatorname{Cov}=|S|$).  Any $\alpha$-approximation for BCCS
+therefore yields an $\alpha$-approximation for MIS.
+Zuckerman~\cite{zuckerman2007} showed that MIS cannot be approximated
+within $|V|^{1-\varepsilon}$ for any $\varepsilon>0$ unless P\,=\,NP.
+
+\begin{corollary}\label{cor:inapprox}
+Unless $\mathrm{P}=\mathrm{NP}$, BCCS cannot be approximated within
+$|V|^{1-\varepsilon}$ for any $\varepsilon>0$.
+\end{corollary}
+
+This worst-case bound applies to adversarial instances.
+Real-world AML graphs exhibit temporal locality and natural community
+structure that make the problem far more tractable in practice.
+
+\subsection{Connection to Maximum Coverage}
+
+BCCS also relates to the \textsc{Maximum Coverage Problem} (MCP).
+In settings where each case acts as a ``set'' of edges it covers,
+the BCCS optimiser must decide which target edges to cover within
+the budget, analogous to selecting sets in MCP.
+Feige~\cite{feige1998} showed that MCP cannot be approximated beyond
+$1-1/e\approx 0.632$ unless P\,=\,NP.
+
+\subsection{Practical Implications}
+
+Despite worst-case NP-hardness, our hierarchical WCC\,+\,Leiden
+heuristic (BTCS) achieves \textbf{94--97\%} of the upper bound
+(NoBudget WCC coverage) at $k=1\%$ on the AML100k and AML1M datasets.
+This suggests that real-world AML transaction graphs possess structure
+--- e.g.\ natural community boundaries that align with the budget ---
+making the problem tractable in practice even though worst-case
+instances are intractable.
+
+%% ---------------------------------------------------------------
+\begin{thebibliography}{9}
+
+\bibitem{karp1972}
+R.\,M.~Karp,
+``Reducibility among combinatorial problems,''
+in \emph{Complexity of Computer Computations},
+pp.~85--103, Plenum Press, 1972.
+
+\bibitem{feige1998}
+U.~Feige,
+``A threshold of $\ln n$ for approximating set cover,''
+\emph{Journal of the ACM}, vol.~45, no.~4, pp.~634--652, 1998.
+
+\bibitem{zuckerman2007}
+D.~Zuckerman,
+``Linear degree extractors and the inapproximability of max clique
+and chromatic number,''
+\emph{Theory of Computing}, vol.~3, no.~1, pp.~103--128, 2007.
+
+\bibitem{traag2019}
+V.\,A.~Traag, L.~Waltman, and N.\,J.~van Eck,
+``From Louvain to Leiden: guaranteeing well-connected communities,''
+\emph{Scientific Reports}, vol.~9, no.~1, p.~5233, 2019.
+
+\end{thebibliography}
+
+\end{document}
