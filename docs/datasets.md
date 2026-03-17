@@ -1,6 +1,11 @@
 # Dataset Reference — BTCS ICDM 2026
 *Maintainer: Andre da Costa Silva (ITA) | Last updated: 2026-03-17*
 
+> **⚠️ Downloads pendentes (baixar manualmente):**
+> - **DGraph-Fin**: https://dgraph.xinye.com/dataset → `GrafosGNN/data/dgraph_fin/raw/DGraphFin.zip`
+> - **T-Finance**: https://drive.google.com/drive/folders/1PpNwvZx_YRSCDiHaBUmRIS3x1rZR7fMr → extrair em `GrafosGNN/data/t_finance/`
+> - **Elliptic++**: https://drive.google.com/drive/folders/1MRPXz79Lu_JGLlJ21MDfML44dKN9R08l → extrair em `GrafosGNN/data/elliptic_plus/`
+
 > **Propósito:** Referência persistente para que novas sessões Claude consigam
 > retomar o trabalho sem perder contexto de quais datasets existem, seus paths
 > exatos, schemas de colunas e semântica dos labels. Atualizar este arquivo ao
@@ -24,6 +29,9 @@
 | [Amazon Fraud](#amazon--yelp-fraud) | Real (.mat) | ~4.4M | node→edge | nb04/05 | ✅ |
 | [Yelp Fraud](#amazon--yelp-fraud) | Real (.mat) | ~3.8M | node→edge | nb04/05 | ✅ |
 | [**Libra Bank**](#libra-bank-real) | **Real (banco RO)** | **597,165** | **edge nr_alerts/nr_reports** | **nb06** | **✅** |
+| [**DGraph-Fin**](#dgraph-fin) | Real (fintech CN) | 4,300,999 | node fraud→edge | nb04/05 | ⬜ download |
+| [**T-Finance**](#t-finance) | Real (fintech CN) | 3,621,479 | node anomaly→edge | nb04/05 | ⬜ download |
+| [**Elliptic++**](#elliptic-plus) | Real (Bitcoin) | ~234k+ tx+wallet | node illicit→edge | nb04/05 | ⬜ download |
 
 ---
 
@@ -434,6 +442,183 @@ RESULTS = BASE / 'GrafosGNN/results'     # outputs dos notebooks
 
 ---
 
+## DGraph-Fin
+
+**Paper:** Yancheng Dong et al., "DGraph: A Large-Scale Financial Dataset for Graph Anomaly Detection"
+NeurIPS 2022 Datasets & Benchmarks
+**DOI:** https://arxiv.org/abs/2207.03579
+**Download:** https://dgraph.xinye.com/dataset (requer cadastro não-comercial)
+**GitHub:** https://github.com/DGraphXinye/DGraphFin_baseline
+
+**Descrição:** Grafo de relações de contato de emergência entre usuários de plataforma de microcrédito online (Finvolution Group, China). Detecção de usuários fraudulentos/defaulters.
+
+**⚠️ Download manual necessário:**
+1. Acessar https://dgraph.xinye.com/dataset
+2. Fazer cadastro com nome/email e assinar termo de uso não-comercial
+3. Baixar `DGraphFin.zip`
+4. Colocar em: `GrafosGNN/data/dgraph_fin/raw/DGraphFin.zip`
+
+**Path:**
+```
+GrafosGNN/data/dgraph_fin/
+  raw/
+    DGraphFin.zip    ← baixar do site oficial
+    DGraphFin.pt     ← gerado automaticamente pelo loader após unzip
+```
+
+**Estrutura PyG (após carregamento):**
+```python
+data.x          float32[3_700_550, 17]   features de nó (anonimizadas)
+data.edge_index int64[2, 4_300_999]      arestas direcionadas
+data.edge_attr  int64[4_300_999]         tipo de relacionamento
+data.edge_time  int64[4_300_999]         timestamp ordinal
+data.y          int64[3_700_550]          label: 0=normal, 1=fraude, 2=backlit
+data.train_mask / val_mask / test_mask
+```
+
+**Stats:**
+```
+Nós:     3,700,550 total  |  ~1.32% fraudulentos (label > 0)
+Arestas: 4,300,999        |  17 features por nó
+```
+
+**Para BTCS:**
+- node-level labels → edge scores via `max(score_src, score_dst)`
+- `delta_L = 30` (timestamps ordinais disponíveis)
+- Loader: `load_dgraph_fin()` em nb04 Cell 4B
+
+---
+
+## T-Finance
+
+**Paper:** Jianheng Tang et al., "Rethinking Graph Neural Networks for Anomaly Detection"
+ICML 2022
+**DOI:** https://proceedings.mlr.press/v162/tang22b.html
+**Download:** https://drive.google.com/drive/folders/1PpNwvZx_YRSCDiHaBUmRIS3x1rZR7fMr
+**GitHub:** https://github.com/squareRoot3/Rethinking-Anomaly-Detection
+
+**Descrição:** Rede de transações financeiras reais anonimizada de plataforma fintech chinesa. Nós são contas/usuários; arestas indicam relações de transação. Anomalias incluem fraude, lavagem de dinheiro e apostas online.
+
+**⚠️ Download manual necessário:**
+1. Acessar o Google Drive: https://drive.google.com/drive/folders/1PpNwvZx_YRSCDiHaBUmRIS3x1rZR7fMr
+2. Baixar a pasta completa (contém T-Finance e T-Social)
+3. Extrair e colocar o arquivo .pt em: `GrafosGNN/data/t_finance/`
+4. Arquivo esperado: `t-finance.pt` ou `T-Finance.pt`
+
+**Path:**
+```
+GrafosGNN/data/t_finance/
+  t-finance.pt    ← arquivo PyG Data object (.pt)
+```
+
+**Estrutura PyG:**
+```python
+data.x          float32[939_010, 10]    features de nó (10 dims anonimizadas)
+data.edge_index int64[2, 3_621_479]     arestas (sem timestamps)
+data.y          int64[939_010]           label: 0=normal, 1=anomalia
+```
+
+**Stats:**
+```
+Nós:     939,010 total  |  ~4.58% anomalias (fraude/lavagem/apostas)
+Arestas: 3,621,479      |  10 features por nó
+Sem timestamps (grafo estático)
+```
+
+**Para BTCS:**
+- node-level labels → edge scores via `max(score_src, score_dst)`
+- `delta_L = n_edges` (sem janela temporal — grafo estático [NT])
+- Loader: `load_t_finance()` em nb04 Cell 4B
+
+---
+
+## Elliptic Plus
+
+**Paper:** Youssef Elmougy & Ling Liu, "Demystifying Fraudulent Transactions and Illicit Nodes in the Bitcoin Network for Financial Forensics"
+KDD 2023
+**DOI:** https://arxiv.org/abs/2404.19109
+**Download:** https://drive.google.com/drive/folders/1MRPXz79Lu_JGLlJ21MDfML44dKN9R08l
+**GitHub:** https://github.com/git-disl/EllipticPlusPlus
+
+**Descrição:** Extensão do Elliptic original que adiciona:
+1. **Transactions Dataset**: mesmos 203k txs + arestas tx→wallet
+2. **Actors Dataset**: 822k wallets/endereços Bitcoin com labels de entidade (exchanges, mixers, mining pools, scams, etc.)
+
+**⚠️ Download manual necessário:**
+1. Acessar o Google Drive: https://drive.google.com/drive/folders/1MRPXz79Lu_JGLlJ21MDfML44dKN9R08l
+2. Baixar pasta completa (~alguns GB)
+3. Extrair mantendo a estrutura de subpastas
+4. Colocar em: `GrafosGNN/data/elliptic_plus/`
+
+**Path:**
+```
+GrafosGNN/data/elliptic_plus/
+  Transactions Dataset/
+    txs_features.csv            ← features por transação
+    txs_classes.csv             ← labels ('1'=illicit, '2'=licit, 'unknown')
+    txs_edgelist.csv            ← tx→tx (mesmo formato Elliptic original)
+    txs_wallets_edgelist.csv    ← tx→wallet (novo no Elliptic++)
+  Actors Dataset/
+    wallets_features.csv        ← features por wallet address
+    wallets_classes.csv         ← labels de wallet (exchanges, mixers, etc.)
+    wallets_edgelist.csv        ← wallet→wallet edges
+```
+
+**Stats (Transactions Dataset):**
+```
+Nós:     203,769 transações Bitcoin
+Arestas: 234,355 tx→tx  +  adicionais tx→wallet
+Labels:  4,545 illicit | 42,019 licit | 157,205 unknown
+49 time steps
+```
+
+**Para BTCS:**
+- Compatível com loader Elliptic original (node→edge label propagation)
+- `delta_L = 2` time steps
+- Loader: `load_elliptic_plus()` em nb04 Cell 4B
+
+---
+
+## GNN Score Files (nb05 output)
+
+O notebook `nb05_gnn_training.ipynb` treina GraphSAGE em cada dataset e salva:
+
+```
+GrafosGNN/results/nb05_gnn/
+  {dataset_name}_gnn_scores.npz    ← {p, y, src, dst, timestamps}
+```
+
+Datasets com scores GNN (nb05):
+- `ibm_aml_txns`, `IBM_HI_Small`, `IBM_HI_Medium`, `IBM_HI_Large`
+- `IBM_LI_Small`, `IBM_LI_Medium`, `IBM_LI_Large`
+- `elliptic`, `elliptic_plus`, `amazon_fraud`, `yelp_fraud`, `paysim`
+- `dgraph_fin`, `t_finance` (quando disponíveis)
+
+---
+
+## Convenções de Path
+
+```python
+# Colab (Google Drive montado)
+IN_COLAB = 'google.colab' in sys.modules
+BASE = Path('/content/drive/MyDrive') if IN_COLAB else Path('.').resolve()
+
+# Datasets grandes (AMLSim AML100k/AML1M)
+AML100K_BASE = BASE / 'DatasetDissertacao/IBM_TRANSACTION_AML/AMLSIMFULL/AML100k'
+AML1M_BASE   = BASE / 'DatasetDissertacao/IBM_TRANSACTION_AML/AMLSIMFULL/AML1M'
+
+# Datasets no repo GrafosGNN (versionados via .gitignore de dados grandes)
+DATA    = BASE / 'GrafosGNN/data'        # bitcoin, elliptic, paysim, ibm_aml, libra, etc.
+RESULTS = BASE / 'GrafosGNN/results'     # outputs dos notebooks
+```
+
+**Drive local (macOS):**
+```
+~/Library/CloudStorage/GoogleDrive-acsilva@gmail.com/Meu Drive/GrafosGNN/data/
+```
+
+---
+
 ## Datasets Ausentes / Não Sincronizados
 
 | Dataset | Motivo | Solução |
@@ -441,6 +626,9 @@ RESULTS = BASE / 'GrafosGNN/results'     # outputs dos notebooks
 | AML100k/AML1M CSV brutos | Tamanho (>10GB) — só artefatos .pt/.npz sincronizados localmente | Usar no Colab |
 | IBM HI/LI Medium/Large | RAM insuficiente localmente | Usar no Colab com A100 |
 | DatasetDissertacao/ (local) | Pasta não sincronizada pelo Google Drive Stream | Abrir no Colab |
+| **DGraph-Fin** | Download manual requerido (cadastro no site) | https://dgraph.xinye.com/dataset |
+| **T-Finance** | Download manual via Google Drive | https://drive.google.com/drive/folders/1PpNwvZx_YRSCDiHaBUmRIS3x1rZR7fMr |
+| **Elliptic++** | Download manual via Google Drive | https://drive.google.com/drive/folders/1MRPXz79Lu_JGLlJ21MDfML44dKN9R08l |
 
 ---
 
