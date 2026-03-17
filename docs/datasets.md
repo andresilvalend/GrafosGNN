@@ -1,10 +1,8 @@
 # Dataset Reference — BTCS ICDM 2026
 *Maintainer: Andre da Costa Silva (ITA) | Last updated: 2026-03-17*
 
-> **⚠️ Downloads pendentes (baixar manualmente):**
-> - **DGraph-Fin**: https://dgraph.xinye.com/dataset → `GrafosGNN/data/dgraph_fin/raw/DGraphFin.zip`
-> - **T-Finance**: https://drive.google.com/drive/folders/1PpNwvZx_YRSCDiHaBUmRIS3x1rZR7fMr → extrair em `GrafosGNN/data/t_finance/`
-> - **Elliptic++**: https://drive.google.com/drive/folders/1MRPXz79Lu_JGLlJ21MDfML44dKN9R08l → extrair em `GrafosGNN/data/elliptic_plus/`
+> **✅ Todos os datasets estão disponíveis no Google Drive (`GrafosGNN/data/`).**
+> Downloads concluídos em 2026-03-17. Ver seções abaixo para paths e schemas exatos.
 
 > **Propósito:** Referência persistente para que novas sessões Claude consigam
 > retomar o trabalho sem perder contexto de quais datasets existem, seus paths
@@ -29,9 +27,9 @@
 | [Amazon Fraud](#amazon--yelp-fraud) | Real (.mat) | ~4.4M | node→edge | nb04/05 | ✅ |
 | [Yelp Fraud](#amazon--yelp-fraud) | Real (.mat) | ~3.8M | node→edge | nb04/05 | ✅ |
 | [**Libra Bank**](#libra-bank-real) | **Real (banco RO)** | **597,165** | **edge nr_alerts/nr_reports** | **nb06** | **✅** |
-| [**DGraph-Fin**](#dgraph-fin) | Real (fintech CN) | 4,300,999 | node fraud→edge | nb04/05 | ⬜ download |
-| [**T-Finance**](#t-finance) | Real (fintech CN) | 3,621,479 | node anomaly→edge | nb04/05 | ⬜ download |
-| [**Elliptic++**](#elliptic-plus) | Real (Bitcoin) | ~234k+ tx+wallet | node illicit→edge | nb04/05 | ⬜ download |
+| [**DGraph-Fin**](#dgraph-fin) | Real (fintech CN) | 4,300,999 | node fraud→edge | nb04/05 | ✅ |
+| [**T-Finance**](#t-finance) | Real (fintech CN) | 42,445,086 | node anomaly→edge | nb04/05 | ✅ |
+| [**Elliptic++**](#elliptic-plus) | Real (Bitcoin) | ~234k+ tx+wallet | node illicit→edge | nb04/05 | ✅ |
 
 ---
 
@@ -452,28 +450,27 @@ NeurIPS 2022 Datasets & Benchmarks
 
 **Descrição:** Grafo de relações de contato de emergência entre usuários de plataforma de microcrédito online (Finvolution Group, China). Detecção de usuários fraudulentos/defaulters.
 
-**⚠️ Download manual necessário:**
-1. Acessar https://dgraph.xinye.com/dataset
-2. Fazer cadastro com nome/email e assinar termo de uso não-comercial
-3. Baixar `DGraphFin.zip`
-4. Colocar em: `GrafosGNN/data/dgraph_fin/raw/DGraphFin.zip`
+**Download:** Cadastro em https://dgraph.xinye.com/dataset (termo de uso não-comercial).
 
-**Path:**
+**Path (arquivos reais extraídos):**
 ```
-GrafosGNN/data/dgraph_fin/
-  raw/
-    DGraphFin.zip    ← baixar do site oficial
-    DGraphFin.pt     ← gerado automaticamente pelo loader após unzip
+GrafosGNN/data/dgraph_fin/raw/
+  dgraphfin.npz                     ← 649 MB — numpy format (formato real do download)
+  dgraphfinv2_edge_timestamp.npy    ← 17 MB — edge timestamps (V2)
+  dgraphfinv2_node_timestamp.npy    ← 15 MB — node timestamps (V2)
+  Readme.md
 ```
 
-**Estrutura PyG (após carregamento):**
+**Estrutura do .npz (numpy format):**
 ```python
-data.x          float32[3_700_550, 17]   features de nó (anonimizadas)
-data.edge_index int64[2, 4_300_999]      arestas direcionadas
-data.edge_attr  int64[4_300_999]         tipo de relacionamento
-data.edge_time  int64[4_300_999]         timestamp ordinal
-data.y          int64[3_700_550]          label: 0=normal, 1=fraude, 2=backlit
-data.train_mask / val_mask / test_mask
+data['x']               float64[3_700_550, 17]   features de nó (anonimizadas)
+data['edge_index']      int64[4_300_999, 2]       arestas — shape (E,2) NÃO (2,E)!
+data['edge_type']       int64[4_300_999]           tipo de relacionamento
+data['edge_timestamp']  int64[4_300_999]           timestamp ordinal (já incluso no .npz)
+data['y']               int64[3_700_550]            label: 0=normal, 1=fraude, 2=blacklist
+data['train_mask']      int64[857_899]              índices de treino (não boolean)
+data['valid_mask']      int64[183_862]              índices de validação
+data['test_mask']       int64[183_840]              índices de teste
 ```
 
 **Stats:**
@@ -499,29 +496,31 @@ ICML 2022
 
 **Descrição:** Rede de transações financeiras reais anonimizada de plataforma fintech chinesa. Nós são contas/usuários; arestas indicam relações de transação. Anomalias incluem fraude, lavagem de dinheiro e apostas online.
 
-**⚠️ Download manual necessário:**
-1. Acessar o Google Drive: https://drive.google.com/drive/folders/1PpNwvZx_YRSCDiHaBUmRIS3x1rZR7fMr
-2. Baixar a pasta completa (contém T-Finance e T-Social)
-3. Extrair e colocar o arquivo .pt em: `GrafosGNN/data/t_finance/`
-4. Arquivo esperado: `t-finance.pt` ou `T-Finance.pt`
+**Download:** Google Drive: https://drive.google.com/drive/folders/1PpNwvZx_YRSCDiHaBUmRIS3x1rZR7fMr
 
-**Path:**
+**Path (arquivo real extraído):**
 ```
 GrafosGNN/data/t_finance/
-  t-finance.pt    ← arquivo PyG Data object (.pt)
+  tfinance    ← 652 MB — DGL binary format (SEM extensão, não .pt!)
 ```
 
-**Estrutura PyG:**
+**Estrutura DGL (carregado com `dgl.load_graphs()`):**
 ```python
-data.x          float32[939_010, 10]    features de nó (10 dims anonimizadas)
-data.edge_index int64[2, 3_621_479]     arestas (sem timestamps)
-data.y          int64[939_010]           label: 0=normal, 1=anomalia
+g = dgl.load_graphs('tfinance')[0][0]
+g.num_nodes()          # 39 357 nós (versão distribuída processada)
+g.num_edges()          # 42 445 086 arestas
+g.ndata['feature']     # float64[39_357, 10]   features por nó
+g.ndata['label']       # int64[39_357, 2]       one-hot: col 0=normal, col 1=fraude
+# y_node = g.ndata['label'][:, 1].numpy()
 ```
 
-**Stats:**
+**Nota:** A versão distribuída tem 39 357 nós (≠ 939 010 do paper original), mas mantém
+o fraud rate de 4.58% exato. Estrutura de grafo diferente (42M arestas vs 3.6M do paper).
+
+**Stats (versão real):**
 ```
-Nós:     939,010 total  |  ~4.58% anomalias (fraude/lavagem/apostas)
-Arestas: 3,621,479      |  10 features por nó
+Nós:     39,357 total    |  ~4.58% anomalias (fraude/lavagem/apostas)
+Arestas: 42,445,086      |  10 features por nó
 Sem timestamps (grafo estático)
 ```
 
@@ -544,25 +543,24 @@ KDD 2023
 1. **Transactions Dataset**: mesmos 203k txs + arestas tx→wallet
 2. **Actors Dataset**: 822k wallets/endereços Bitcoin com labels de entidade (exchanges, mixers, mining pools, scams, etc.)
 
-**⚠️ Download manual necessário:**
-1. Acessar o Google Drive: https://drive.google.com/drive/folders/1MRPXz79Lu_JGLlJ21MDfML44dKN9R08l
-2. Baixar pasta completa (~alguns GB)
-3. Extrair mantendo a estrutura de subpastas
-4. Colocar em: `GrafosGNN/data/elliptic_plus/`
+**Download:** Google Drive: https://drive.google.com/drive/folders/1MRPXz79Lu_JGLlJ21MDfML44dKN9R08l
 
-**Path:**
+**Path (arquivos reais extraídos):**
 ```
 GrafosGNN/data/elliptic_plus/
-  Transactions Dataset/
-    txs_features.csv            ← features por transação
-    txs_classes.csv             ← labels ('1'=illicit, '2'=licit, 'unknown')
-    txs_edgelist.csv            ← tx→tx (mesmo formato Elliptic original)
-    txs_wallets_edgelist.csv    ← tx→wallet (novo no Elliptic++)
-  Actors Dataset/
-    wallets_features.csv        ← features por wallet address
-    wallets_classes.csv         ← labels de wallet (exchanges, mixers, etc.)
-    wallets_edgelist.csv        ← wallet→wallet edges
+  Elliptic++ Dataset/                  ← subpasta com este nome exato (inclui espaço e ++)
+    txs_features.csv                   ← features por transação (col 0=txId, col 1=timestep)
+    txs_classes.csv                    ← labels ('1'=illicit, '2'=licit, 'unknown')
+    txs_edgelist.csv                   ← arestas tx→tx
+    AddrTx_edgelist.csv               ← arestas wallet→tx (novo no Elliptic++)
+    TxAddr_edgelist.csv               ← arestas tx→wallet (novo no Elliptic++)
+    AddrAddr_edgelist.csv             ← arestas wallet→wallet
+    wallets_features.csv              ← features por wallet address
+    wallets_classes.csv               ← labels de wallet (exchanges, mixers, etc.)
+    wallets_features_classes_combined.csv  ← combinado features+labels wallets
 ```
+
+**Nota:** Subfolder se chama `Elliptic++ Dataset` (NÃO `Transactions Dataset` como documentado originalmente).
 
 **Stats (Transactions Dataset):**
 ```
@@ -626,9 +624,9 @@ RESULTS = BASE / 'GrafosGNN/results'     # outputs dos notebooks
 | AML100k/AML1M CSV brutos | Tamanho (>10GB) — só artefatos .pt/.npz sincronizados localmente | Usar no Colab |
 | IBM HI/LI Medium/Large | RAM insuficiente localmente | Usar no Colab com A100 |
 | DatasetDissertacao/ (local) | Pasta não sincronizada pelo Google Drive Stream | Abrir no Colab |
-| **DGraph-Fin** | Download manual requerido (cadastro no site) | https://dgraph.xinye.com/dataset |
-| **T-Finance** | Download manual via Google Drive | https://drive.google.com/drive/folders/1PpNwvZx_YRSCDiHaBUmRIS3x1rZR7fMr |
-| **Elliptic++** | Download manual via Google Drive | https://drive.google.com/drive/folders/1MRPXz79Lu_JGLlJ21MDfML44dKN9R08l |
+| **DGraph-Fin** | ✅ `data/dgraph_fin/raw/dgraphfin.npz` (numpy, 649MB) | https://dgraph.xinye.com/dataset |
+| **T-Finance** | ✅ `data/t_finance/tfinance` (DGL binary, 652MB) | https://drive.google.com/drive/folders/1PpNwvZx_YRSCDiHaBUmRIS3x1rZR7fMr |
+| **Elliptic++** | ✅ `data/elliptic_plus/Elliptic++ Dataset/` (CSV) | https://drive.google.com/drive/folders/1MRPXz79Lu_JGLlJ21MDfML44dKN9R08l |
 
 ---
 
