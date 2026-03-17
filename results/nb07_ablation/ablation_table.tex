@@ -1,0 +1,19 @@
+\begin{table}[t]
+\centering
+\caption{Ablation study @ k=5\%. A1: WCC only (no sub-segmentation), A2: Leiden applied flat to top-$k$ subgraph (no temporal window), A3: BTCS v3 (WCC + temporal Leiden, full pipeline). \textbf{Bold} = best per dataset.}
+\label{tab:ablation}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{lcccccccccc}
+\toprule
+ & \multicolumn{2}{c}{\textbf{A1: WCC only}} & \multicolumn{2}{c}{\textbf{A2: Leiden flat}} & \multicolumn{2}{c}{\textbf{A3: BTCS v3}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+\textbf{Dataset} & Yld@100 & AUC & Yld@100 & AUC & Yld@100 & AUC \\
+\midrule
+elliptic & \textbf{1.000} & 0.941 & 0.350 & 0.250 & \textbf{1.000} & \textbf{0.942} \\
+amazon fraud & --- & --- & --- & --- & --- & --- \\
+yelp fraud & --- & --- & --- & --- & --- & --- \\
+bitcoin otc & \textbf{1.000} & 0.550 & 0.495 & 0.403 & \textbf{1.000} & \textbf{0.843} \\
+t finance & --- & --- & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}}
+\end{table}
