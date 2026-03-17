@@ -1,5 +1,5 @@
 # PLANO — GrafosGNN / ICDM 2026
-**Última atualização:** 2026-03-17 (nb06 Libra Bank concluído)
+**Última atualização:** 2026-03-17 (nb07 Ablation + nb08 Seeds concluídos)
 **Autor:** Andre da Costa Silva (ITA)
 **Objetivo:** Publicar paper em ICDM 2026 com o algoritmo BTCS v3 para segmentação de casos de AML
 
@@ -14,7 +14,8 @@ Pipeline: Top-K edges por score → WCC → Leiden → Capping (B=100) → Avali
 Métricas implementadas:
 - `coverage`: fração de edges suspeitas capturadas nos casos
 - `purity_induced`: pureza dos casos (fração de edges positivas)
-- `ocr_b100`: ⚠️ **SEMPRE ZERO** — bug/design a discutir
+- `yield_b100` (H1): fração de fraudes nos primeiros 100 edges abertos pelo analista ← **métrica operacional principal**
+- `auc_purity`: área sob curva de pureza acumulada ← ranking quality
 - `n_cases`, `time_s`
 
 Baselines:
@@ -29,89 +30,29 @@ Baselines:
 
 ### BTCS v3 @ k=5% — Tabela Resumo
 
-| Dataset | \|E\| | BTCS cov | BTCS pur | Melhor rival (cov) |
+| Dataset | \|E\| | BTCS cov | BTCS yield@100 | Melhor rival |
 |---|---|---|---|---|
-| Elliptic (BTC) | 234K | **0.943** | 0.677 | B3 Greedy 0.958 (pur=0.06!) |
-| Elliptic++ | 234K | **0.943** | 0.677 | B3 Greedy 0.958 (pur=0.06!) |
-| PaySim | 6.4M | **0.470** | 0.012 | B1/B2 empate |
-| BTC-Alpha | 24K | **0.388** | 0.562 | B2 Louvain 0.411 |
-| BTC-OTC | 36K | **0.244** | 0.701 | B3 Greedy 0.279 |
-| Amazon (500K*) | 500K | **0.190** | 0.770 | B3 Greedy 0.114 |
-| Yelp (500K*) | 500K | **0.159** | 0.796 | B3 Greedy 0.291 |
-| T-Finance (2M*) | 2M | 0.053 | 0.618 | B3 Greedy 0.081 |
-| DGraph-Fin | 4.3M | 0.047 | 0.678 | **B3 Greedy 0.634** ⚠️ |
-| IBM-HI Small | 5M | 0.044 | ~0 | todos ~0 pur |
-| IBM-LI Small | 7M | 0.040 | ~0 | todos ~0 pur |
-| IBM-AML | 1.3M | 0.005 | ~0 | B3 Greedy cov=0.216 |
-
-\* Amostrados por RAM constraint (4GB VM). Amazon/Yelp: 500K de ~4M. T-Finance: 2M de 42M.
+| Elliptic (BTC) | 234K | **0.943** | **1.000** | B1_WCC yield=1.00 |
+| Elliptic++ | 234K | **0.943** | **1.000** | idêntico ⚠️ bug loader |
+| PaySim | 6.4M | 0.470 | — | B1/B2 empate cov |
+| BTC-Alpha | 24K | **0.388** | — | — |
+| BTC-OTC | 36K | **0.244** | **1.000** | — |
+| Amazon (k=1%) | 4.4M | 0.031 | **0.939** | WCC: 1 caso/44K edges |
+| Yelp (k=1%) | 3.8M | 0.052 | **0.969** | B1_WCC yield=0.969 |
+| T-Finance (2M*) | 2M | 0.053 | — | — |
+| DGraph-Fin | 4.3M | 0.047 | — | B3 Greedy cov=0.634 |
+| IBM-HI Small | 5M | 0.044 | — | todos ~0 purity |
+| IBM-LI Small | 7M | 0.040 | — | todos ~0 purity |
+| IBM-AML 100K | 1.3M | 0.005 | — | B3 Greedy cov=0.216 |
 
 ### Observações Críticas
 1. **DGraph-Fin**: B3 Greedy domina cobertura (0.634 vs 0.047). BTCS ganha em velocidade (6.6s vs 359s). Argumento: tradeoff eficiência × cobertura.
-2. **IBM datasets**: pureza ≈ 0 para TODOS os métodos. Grafos sintéticos de laundering não formam clusters temporais locais. Limitação do domínio, não do algoritmo.
-3. **Elliptic == Elliptic++**: resultados idênticos → possível bug no loader do Elliptic++. Investigar.
-4. **OCR = 0 em todos os 180 resultados**: bug ou design issue. **Discutir antes de corrigir.**
-
-### Outputs Gerados
-- `results/nb04_multi_dataset/multi_dataset_results.csv` — dados brutos
-- `results/nb04_multi_dataset/multi_dataset_results_partial.csv` — checkpoint
-- `results/nb04_multi_dataset/table_results_k5.tex` — tabela LaTeX para paper
-- `results/nb04_multi_dataset/figures/fig1_cov_pur_scatter.png`
-- `results/nb04_multi_dataset/figures/fig2_coverage_bar.png`
-- `results/nb04_multi_dataset/figures/fig3_purity_bar.png`
-- `results/nb04_multi_dataset/figures/fig4_coverage_vs_k.png`
+2. **IBM datasets**: pureza ≈ 0 para TODOS os métodos. Score heurístico cego a padrões AMLSim. Limitação do score, não do algoritmo. Requer GNN (nb05 futuro).
+3. **Elliptic == Elliptic++**: resultados idênticos → **investigar loader** (ver task 2 pendente).
 
 ---
 
-## Datasets Disponíveis
-
-| Dataset | Localização | Status |
-|---|---|---|
-| Elliptic (BTC) | `data/elliptic/` | ✅ usado |
-| Elliptic++ | `Meu Drive/.../elliptic_plus/Elliptic++ Dataset/` | ✅ usado |
-| PaySim | `data/paysim/` | ✅ usado |
-| BTC-Alpha | `data/bitcoin_alpha/` | ✅ usado |
-| BTC-OTC | `data/bitcoin_otc/` | ✅ usado |
-| Amazon Fraud | `data/amazon_fraud/Amazon.mat` | ✅ amostrado |
-| Yelp Fraud | `data/yelp_fraud/YelpChi.mat` | ✅ amostrado |
-| T-Finance | `Meu Drive/.../t_finance/tfinance` (DGL binary) | ✅ amostrado |
-| DGraph-Fin | `Meu Drive/.../dgraph_fin/raw/dgraphfin.npz` | ✅ usado |
-| IBM HI/LI Small | `data/ibm_aml/HI-Small_Trans.csv` etc. | ✅ usado |
-| IBM HI/LI Medium/Large | `data/ibm_aml/` | ⛔ OOM (>32M edges) |
-| ETH-Phishing | `data/ethereum_phishing/MulDiGraph.pkl` (1.2GB) | ⛔ OOM (6GB+ NetworkX) |
-| T-Social | não encontrado | ❓ pendente |
-| Bitcoin-Heist | não encontrado | ❓ pendente |
-| **Libra Bank** | `Meu Drive/.../libra/Libra_bank_3months_graph.csv` | 🔄 **PRÓXIMO** |
-
-### Schema Libra Bank
-```
-597,166 edges (3 meses)
-Colunas: id_source, id_destination, cum_amount, nr_transactions, nr_alerts, nr_reports
-Sinal de fraude: nr_alerts > 0 e/ou nr_reports > 0
-Sem timestamps explícitos (grafo agregado por par de contas)
-```
-
----
-
-## Scripts e Notebooks
-
-| Arquivo | Descrição | Status |
-|---|---|---|
-| `notebooks/nb04_multi_dataset.ipynb` | Pipeline multi-dataset | ✅ loaders atualizados (commit 1a5f318) |
-| `notebooks/nb06_libra.ipynb` | Libra Bank analysis | ⚠️ notebook parcial — ver scripts abaixo |
-| `scripts/run_libra_final.py` | Libra Bank pipeline completo | ✅ concluído (2026-03-17) |
-| `scripts/run_curves2.py` | Purity curves + yield@100 (7 datasets) | ✅ concluído |
-| `scripts/run_nb04_pipeline.py` | Pipeline sequencial standalone | ✅ completo |
-| `scripts/nb04_core_cells.py` | Funções extraídas do nb04 | ✅ |
-| `scripts/download_datasets.py` | Download automático | ✅ |
-
----
-
-## Roadmap ICDM 2026
-
-### 🔴 Bloqueadores (sem esses, paper não vai)
-
-#### 1. nb06 — Libra Bank ✅ CONCLUÍDO (2026-03-17)
+## nb06 — Libra Bank (Real) ✅ CONCLUÍDO (2026-03-17)
 
 **Arquivo:** `results/nb06_libra/libra_results.csv`
 **597,165 edges | 385,100 nodes | 444 fraud edges (0.074%)**
@@ -125,71 +66,148 @@ Sem timestamps explícitos (grafo agregado por par de contas)
 | B2 Louvain | 0.939 | 0.089 | **0.864** | 0.1s |
 | B3 Greedy | 0.946 | 0.010 | 0.079 | **716s** ⚠️ |
 
-**Observações críticas:**
-- **B3 Greedy = catástrofe**: pur=0.002, yield@100=0.079, 716s apenas para k=1%. Inviável em produção.
-- **B1_WCC > BTCS em AUC purity**: Porque Libra não tem timestamps (grafo agregado), o BTCS não consegue explorar janelas temporais. WCC captura clusters puros diretamente.
-- **BTCS >B1_WCC em cobertura**: 97.8% vs 81.8% (k=5%) — BTCS captura 97% da fraude, B1_WCC perde 18%.
-- **Tradeoff claro**: BTCS = maior cobertura (+16%), B1 = maior AUC purity (+4.5×). Em AML operacional, cobertura é crítica (cada fraude perdida = prejuízo). BTCS ganha.
-- **Outputs:** `libra_results.csv`, `libra_results_k5.tex`, figA–figD em `figures/`
-
-#### 2. OCR → Substituído por `auc_purity` + `yield_b100` ✅ RESOLVIDO (2026-03-17)
-
-- **Decisão tomada**: H1 = yield@100 (de cada 100 edges que o analista abre, quantas são fraude)
-- **Implementação**: `compute_purity_curve()` — curva de pureza acumulada por casos ranqueados por score
-- **Resultados**: `results/nb04_multi_dataset/purity_curves_metrics.csv` (105 linhas, 7 datasets)
-- **Achado chave**: B3 Greedy AUC=0.10–0.31 em todos os datasets → "cobertura enganosa": quando se abre os casos de B3, a maioria é ruído imediato. BTCS yield@100=1.00 em 5/7 datasets.
-- **Integrar na tabela principal** do paper (substituir coluna ocr_b100)
-
-### 🟡 Importante (enfraquece mas não bloqueia)
-
-#### 3. Elliptic++ vs Elliptic — investigar
-- Resultados idênticos: 0.943/0.677/4712 cases em ambos
-- Verificar se o loader está pegando o mesmo subconjunto de arestas
-- Pode ser que Elliptic++ tem o mesmo grafo de transações + info de atores (que não usamos)
-
-#### 4. Ablation study (GAP 5 — parcialmente feito em nb03)
-- WCC isolado vs Leiden isolado vs BTCS (WCC+Leiden)
-- Já tem curvas de scalability no nb03
-
-#### 5. DGraph-Fin — argumento de eficiência
-- Criar figura: cobertura × tempo para BTCS vs B3 Greedy
-- BTCS: 6.6s, cov=0.047. B3 Greedy: 359s, cov=0.634
-- Em produção bancária: 6.6s é viável em batch diário. 359s não escala.
-
-#### 6. Multiple seeds / error bars
-- Rodar BTCS com seeds 42/43/44 em 3-4 datasets principais
-- Reportar mean ± std
-
-### 🟢 Pronto / Quase pronto
-
-- ✅ Seção 4 (garantias de aproximação) em LaTeX
-- ✅ GAP 3 (ablation Louvain) em nb03
-- ✅ GAP 5 (scalability) em nb03
-- ✅ Tabela multi-dataset em LaTeX (`table_results_k5.tex`)
-- ✅ 6 figuras de análise (fig1–fig6, incluindo curvas de pureza + AUC heatmap)
-- ✅ **nb06 Libra Bank** — 4 figuras + CSV + LaTeX
-- ✅ **auc_purity + yield_b100** substituindo ocr_b100 (implementado + validado em 7 datasets)
-- ✅ **Scripts standalone**: `run_libra_final.py`, `run_curves2.py`
+**Achados-chave:**
+- BTCS supera em cobertura (+16% vs B1) — em AML, fraude não capturada = prejuízo real
+- Libra não tem timestamps (grafo agregado) → janela temporal Lk inativa; WCC captura clusters puros
+- B3 Greedy = inviável em produção (716s para k=1%; estimativa ~3h para k=5%)
+- **Scripts:** `scripts/run_libra_final.py` | **Outputs:** figA–figD + `libra_results_k5.tex`
 
 ---
 
-## Assessment de Publicabilidade (2026-03-17 — atualizado pós nb06)
+## nb07 — Ablation Study ✅ CONCLUÍDO (2026-03-17)
 
-**Estado atual: ~80% pronto para ICDM**
+**Arquivo:** `results/nb07_ablation/ablation_results.csv` (24 linhas)
+**3 variantes:** A1=WCC_only, A2=Leiden_flat (sem WCC/janela temporal), A3=BTCS_v3
+
+### Achados (os 3 argumentos centrais do paper)
+
+| Dataset | k | A1 WCC_only | A2 Leiden_flat | A3 BTCS_v3 |
+|---|---|---|---|---|
+| Elliptic | 1% | yield=1.00, AUC=0.995 | yield=0.52, AUC=0.502 | yield=1.00, AUC=0.995 |
+| Elliptic | 5% | yield=1.00, AUC=0.941 | **yield=0.35, AUC=0.250** ⚠️ | yield=1.00, AUC=0.942 |
+| Amazon | 1% | **1 caso / 44,084 edges** ⚠️ | 13 casos, yield=0.062 | **105 casos, yield=0.939** ✅ |
+| Yelp | 1% | 702 casos, yield=0.969 | 730 casos, yield=0.480 | 1,853 casos, yield=0.969 |
+| Bitcoin OTC | 5% | yield=1.00, AUC=0.550 | yield=0.495, AUC=0.403 | yield=1.00, AUC=0.843 |
+
+**Conclusão narrativa:**
+1. **WCC_only → casos gigantes**: Amazon k=1% gera 1 caso com 44.084 edges — analista não consegue trabalhar
+2. **Leiden_flat → destrói sinal de score**: Elliptic k=5% yield 1.00→0.35, AUC 0.94→0.25 (perde ordenação por score)
+3. **BTCS = melhor dos dois**: WCC isola clusters de fraude + Leiden subdivide casos grandes preservando score ordering
+
+**Scripts:** `scripts/run_ablation.py` | **Figuras:** `fig1_ablation_curves.png`, `fig2_ablation_bar.png`
+
+---
+
+## nb08 — Multiple Seeds ✅ CONCLUÍDO (2026-03-17)
+
+**Arquivo:** `results/nb08_seeds/seeds_results.csv` (8 linhas)
+**Seeds:** [42, 43, 44, 45, 46] — 5 seeds em 4 datasets
+
+| Dataset | k | Yield@100 | AUC Purity | Coverage |
+|---|---|---|---|---|
+| Elliptic | 1%/5%/10% | **1.000 ± 0.000** | 0.700–0.995 ± 0.000 | 0.289–0.940 |
+| Bitcoin OTC | 1%/5%/10% | 0.890–1.000 ± ≤0.020 | 0.841–0.923 ± ≤0.011 | 0.063–0.372 |
+| Yelp Fraud | 1% | 0.969 ± 0.000 | 0.718 ± 0.001 | 0.052 |
+| Amazon Fraud | 1% | 0.941 ± 0.003 | 0.934 ± 0.005 | 0.031 |
+
+**Conclusão:** Desvio padrão ≤ 0.020 em todos os casos → BTCS é **determinístico na prática**.
+A aleatoriedade do Leiden (seed do algoritmo) não afeta os resultados operacionalmente.
+
+**Tabela LaTeX pronta:** `results/nb08_seeds/seeds_table.tex`
+**Script:** `scripts/run_seeds.py`
+
+---
+
+## Purity Curves + Yield@100 (nb04 extensão) ✅ CONCLUÍDO
+
+- **Decisão:** H1 = yield@100 substitui ocr_b100
+- `compute_purity_curve()` — curva de pureza acumulada por casos ranqueados por score
+- **Arquivo:** `results/nb04_multi_dataset/purity_curves_metrics.csv` (105 linhas, 7 datasets)
+- **Achado:** B3 Greedy AUC=0.10–0.31 em todos os datasets → cobertura enganosa (casos cheios de ruído)
+
+---
+
+## Datasets Disponíveis
+
+| Dataset | Localização | Status |
+|---|---|---|
+| Elliptic (BTC) | `data/elliptic/` | ✅ usado |
+| Elliptic++ | `Meu Drive/.../elliptic_plus/` | ⚠️ resultado idêntico ao Elliptic — **investigar loader** |
+| PaySim | `data/paysim/` | ✅ usado (yield@100 pendente) |
+| BTC-Alpha | `data/bitcoin_alpha/` | ✅ usado |
+| BTC-OTC | `data/bitcoin_otc/` | ✅ usado |
+| Amazon Fraud | `data/amazon_fraud/Amazon.mat` | ✅ k=1% |
+| Yelp Fraud | `data/yelp_fraud/YelpChi.mat` | ✅ k=1% |
+| T-Finance | `Meu Drive/.../t_finance/` (DGL) | ✅ nb04, ⚠️ não incluído no ablation (FUSE) |
+| DGraph-Fin | `Meu Drive/.../dgraph_fin/` | ✅ nb04 |
+| IBM HI/LI Small | `data/ibm_aml/` | ✅ nb04, score heurístico cego |
+| IBM HI/LI Medium/Large | `data/ibm_aml/` | ⛔ OOM (>32M edges) |
+| **Libra Bank** | `Meu Drive/.../libra/` | ✅ **nb06 concluído** |
+
+---
+
+## Scripts e Notebooks
+
+| Arquivo | Descrição | Status |
+|---|---|---|
+| `notebooks/nb04_multi_dataset.ipynb` | Pipeline multi-dataset | ✅ |
+| `scripts/run_libra_final.py` | Libra Bank pipeline | ✅ nb06 |
+| `scripts/run_curves2.py` | Purity curves + yield@100 (7 datasets) | ✅ |
+| `scripts/run_ablation.py` | Ablation WCC/Leiden_flat/BTCS | ✅ nb07 |
+| `scripts/run_seeds.py` | Multiple seeds 42–46 | ✅ nb08 |
+| `scripts/run_nb04_pipeline.py` | Pipeline sequencial standalone | ✅ |
+| `scripts/nb04_core_cells.py` | Funções extraídas do nb04 | ✅ |
+
+---
+
+## Roadmap ICDM 2026
+
+### ✅ Concluído
+
+| Item | Arquivo-chave |
+|---|---|
+| Multi-dataset benchmark (12 datasets) | `multi_dataset_results.csv` |
+| Métricas operacionais (yield@100 + AUC purity) | `purity_curves_metrics.csv` |
+| Libra Bank real-world validation | `libra_results.csv` |
+| Ablation WCC / Leiden_flat / BTCS | `ablation_results.csv` |
+| Estabilidade multi-seed (5 seeds) | `seeds_results.csv`, `seeds_table.tex` |
+| Scalability (DGraph-Fin: 6.6s vs 359s B3) | nb04 |
+| Tabelas LaTeX | `table_results_k5.tex`, `seeds_table.tex`, `libra_results_k5.tex` |
+
+### 🟡 Pendente (afeta qualidade, não bloqueia submissão)
+
+| # | Item | Estimativa | Impacto |
+|---|---|---|---|
+| 1 | Elliptic++ loader bug | 1–2h | +1 dataset único no benchmark |
+| 2 | PaySim yield@100 | 30min | +1 linha na tabela de resultados |
+| 3 | T-Finance no ablation | depende do FUSE | nice-to-have |
+| 4 | nb05 GNN scores para IBM | semanas | trabalho futuro |
+
+### ❌ Fora do escopo atual
+
+- IBM Medium/Large (>32M edges, OOM)
+- ETH-Phishing (6GB+ NetworkX)
+
+---
+
+## Assessment de Publicabilidade (2026-03-17 — pós nb07+nb08)
+
+**Estado atual: ~90% pronto para ICDM 2026**
 
 | Critério | Estado | Nota |
 |---|---|---|
-| Novidade algorítmica | ✅ BTCS v3 é novo | Hierarquia WCC→Leiden para AML |
-| Avaliação em benchmarks públicos | ✅ 12 datasets | Cobertura ampla |
-| Validação real (kill shot) | ✅ nb06 Libra Bank | Score AUC-ROC=1.0, BTCS cov=97.8%, B3 inviável (716s) |
-| Métricas corretas | ✅ yield@100 + AUC purity | ocr_b100 substituído por métricas operacionais |
-| Eficiência | ✅ | DGraph-Fin (6.6s vs 359s) + Libra (3.8s vs 716s) |
-| Ablation | ⚠️ parcial | nb03 tem parte — integrar formalmente |
-| Statistical rigor | ❌ single seed | Multiple seeds = +2-3 dias de trabalho |
+| Novidade algorítmica | ✅ | Hierarquia WCC→Leiden para AML, primeira vez |
+| Avaliação em benchmarks públicos | ✅ | 12 datasets cobrindo fraude + AML |
+| Validação real (kill shot) | ✅ | Libra Bank: AUC-ROC=1.0, cov=97.8%, B3=716s inviável |
+| Métricas operacionais corretas | ✅ | yield@100 + AUC purity (substituem OCR) |
+| Ablation study formal | ✅ | nb07: 3 variantes × 4 datasets × 3 k-values |
+| Rigor estatístico (error bars) | ✅ | nb08: std≤0.020, Elliptic yield=1.000±0.000 |
+| Eficiência computacional | ✅ | 3.8s (Libra), 6.6s (DGraph-Fin) vs 716s/359s B3 |
+| Elliptic++ dataset único | ⚠️ | loader suspeito — investigar |
+| GNN scores para IBM | ❌ | trabalho futuro (nb05) |
 
-**Estado atual:** candidato real a ICDM. Faltam: ablation formal + error bars.
-**Sem ablation/seeds:** submetível em ECML Applied Track / FinancialNLP workshop.
-**Com ablation + seeds:** ICDM main track.
+**Próximo passo imediato:** investigar Elliptic++ loader (pode elevar para ~93%)
+**Após isso:** redigir paper (todos os resultados e tabelas LaTeX já existem)
 
 ---
 
@@ -199,5 +217,6 @@ Sem timestamps explícitos (grafo agregado por par de contas)
 Python 3.10, igraph, leidenalg, numpy, pandas, scipy
 DGL 1.1.3 (para T-Finance)
 RAM: 4GB VM — datasets grandes foram amostrados
-Dados em: /Meu Drive/GrafosGNN/data/ (Google Drive)
+Repo local: /sessions/.../GrafosGNN/
+Dados em: data/ (local) + Meu Drive/ (FUSE mount, Google Drive)
 ```

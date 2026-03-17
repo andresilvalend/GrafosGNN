@@ -973,85 +973,88 @@ def load_t_finance():
 # ─────────────────────────────────────────────────────────────────────────
 # Elliptic++
 # ─────────────────────────────────────────────────────────────────────────
-def load_elliptic_plus(use_actors=False):
-    """Loader para Elliptic++ (KDD 2023, extends Elliptic with wallet/actor labels).
+def load_elliptic_plus(use_actors=True):
+    """Loader para Elliptic++ (KDD 2023, extends Elliptic with wallet/actor graph).
 
-    Arquivos: GrafosGNN/data/elliptic_plus/Elliptic++ Dataset/
-        txs_features.csv     ← features de nó (col 0=txId, col 1=timestep, cols 2+=features)
-        txs_classes.csv      ← labels ('1'=illicit, '2'=licit, 'unknown')
-        txs_edgelist.csv     ← arestas tx→tx
+    FIX (2026-03-17): versão anterior usava txs_edgelist.csv (idêntico ao Elliptic original).
+    Agora usa o grafo de carteiras/atores: AddrAddr_edgelist.csv (2.87M edges, genuinamente diferente).
 
-    Para BTCS: usa Transactions Dataset. delta_L = 2 time steps.
+    Arquivos em: GrafosGNN/data/elliptic_plus/Elliptic++ Dataset/
+        AddrAddr_edgelist.csv          ← arestas wallet→wallet (2.87M) ← USADO AGORA
+        wallets_features_classes_combined.csv ← features + timestep + class por carteira
+        wallets_classes.csv            ← labels (1=illicit, 2=licit, 3=unknown)
+        txs_edgelist.csv               ← NÃO USAR — idêntico ao Elliptic original
+
+    Labels: class=1 illicit (28,601 wallets), class=2 licit (338,871), class=3 unknown (900,788)
+    Resultado: 2.87M wallet edges | 36,903 illicit edges (1.29%) | 49 timesteps
     """
     ep_dir = DATA / 'elliptic_plus'
 
-    # Detecta estrutura de subpasta — prioridade: 'Elliptic++ Dataset', depois flat
-    for sub in ['Elliptic++ Dataset', 'Transactions Dataset', '']:
-        tx_dir = ep_dir / sub if sub else ep_dir
-        if (tx_dir / 'txs_features.csv').exists() or (tx_dir / 'elliptic_txs_features.csv').exists():
+    for sub in ['Elliptic++ Dataset', '']:
+        base = ep_dir / sub if sub else ep_dir
+        if (base / 'AddrAddr_edgelist.csv').exists():
             break
     else:
-        print('[Elliptic++] Arquivos não encontrados — ver docs/datasets.md')
+        print('[Elliptic++] AddrAddr_edgelist.csv não encontrado — ver docs/datasets.md')
         return None
 
-    feat_candidates = ['txs_features.csv', 'elliptic_txs_features.csv']
-    edge_candidates = ['txs_edgelist.csv', 'elliptic_txs_edgelist.csv']
-    cls_candidates  = ['txs_classes.csv',  'elliptic_txs_classes.csv']
+    addr_edge_csv   = base / 'AddrAddr_edgelist.csv'
+    wallets_csv     = base / 'wallets_features_classes_combined.csv'
 
-    feat_csv = next((tx_dir / f for f in feat_candidates if (tx_dir / f).exists()), None)
-    edge_csv = next((tx_dir / f for f in edge_candidates if (tx_dir / f).exists()), None)
-    cls_csv  = next((tx_dir / f for f in cls_candidates  if (tx_dir / f).exists()), None)
-
-    if feat_csv is None or edge_csv is None or cls_csv is None:
-        missing = [n for n,v in [('features',feat_csv),('edges',edge_csv),('classes',cls_csv)] if v is None]
-        print(f'[Elliptic++] Arquivos faltando: {missing}')
+    if not wallets_csv.exists():
+        print('[Elliptic++] wallets_features_classes_combined.csv não encontrado')
         return None
 
     try:
-        df_feat  = pd.read_csv(feat_csv, header=None)
-        df_edges = pd.read_csv(edge_csv)
-        df_class = pd.read_csv(cls_csv)
-        df_class.columns = ['txId', 'class']
+        # 1. Carregar features + labels das carteiras (col 0=address, col 1=timestep, col 2=class)
+        df_w = pd.read_csv(wallets_csv, usecols=[0, 1, 2])
+        df_w.columns = ['address', 'timestep', 'class']
 
-        # Node labels: '1'=illicit, '2'=licit
-        node_label = {}
-        for _, row in df_class.iterrows():
-            c = str(row['class'])
-            if c in ['1', '2']:
-                node_label[int(row['txId'])] = (1 if c == '1' else 0)
+        wallet_label = {}  # addr -> 1/0/-1(unknown)
+        wallet_ts    = {}  # addr -> int timestep
+        for _, row in df_w.iterrows():
+            addr = str(row['address'])
+            c    = int(row['class'])
+            wallet_label[addr] = 1 if c == 1 else (0 if c == 2 else -1)
+            wallet_ts[addr]    = int(row['timestep'])
 
-        # Time steps from feature col 1
-        node_ts = dict(zip(df_feat[0].astype(int), df_feat[1].astype(int)))
-
+        # 2. Carregar grafo de carteiras
+        df_edges = pd.read_csv(addr_edge_csv)
         df_edges.columns = ['src', 'dst']
-        all_ids = pd.unique(pd.concat([df_edges['src'], df_edges['dst']]))
-        id_map  = {int(v): i for i, v in enumerate(sorted(all_ids))}
-        src = df_edges['src'].map(id_map).values.astype(np.int64)
-        dst = df_edges['dst'].map(id_map).values.astype(np.int64)
+        df_edges = df_edges.astype(str)
 
-        y_src = np.array([node_label.get(int(s), 0) for s in df_edges['src']])
-        y_dst = np.array([node_label.get(int(d), 0) for d in df_edges['dst']])
+        # 3. Labels de aresta: max(label_src, label_dst), unknown=0
+        y_src = np.array([max(wallet_label.get(s, -1), 0) for s in df_edges['src']])
+        y_dst = np.array([max(wallet_label.get(d, -1), 0) for d in df_edges['dst']])
         y     = np.maximum(y_src, y_dst).astype(int)
 
-        ts_src = np.array([node_ts.get(int(s), 0) for s in df_edges['src']])
-        ts_dst = np.array([node_ts.get(int(d), 0) for d in df_edges['dst']])
+        # 4. Timestamps
+        ts_src = np.array([wallet_ts.get(s, 0) for s in df_edges['src']])
+        ts_dst = np.array([wallet_ts.get(d, 0) for d in df_edges['dst']])
         timestamps = np.maximum(ts_src, ts_dst).astype(np.int64)
 
-        def ns(nid):
-            if nid in node_label: return 1.0 if node_label[nid] == 1 else 0.0
-            return 0.5
+        # 5. Scores baseados em labels de nó
+        def ns(addr):
+            lbl = wallet_label.get(addr, -1)
+            return 1.0 if lbl == 1 else (0.0 if lbl == 0 else 0.5)
         scores = np.maximum(
-            np.array([ns(int(s)) for s in df_edges['src']]),
-            np.array([ns(int(d)) for d in df_edges['dst']]))
+            np.array([ns(s) for s in df_edges['src']]),
+            np.array([ns(d) for d in df_edges['dst']]))
         scores += np.random.RandomState(42).uniform(0, 0.01, len(scores))
 
+        # 6. Reindex para inteiros
+        all_ids = pd.unique(pd.concat([df_edges['src'], df_edges['dst']]))
+        id_map  = {v: i for i, v in enumerate(sorted(all_ids))}
+        src_int = df_edges['src'].map(id_map).values.astype(np.int64)
+        dst_int = df_edges['dst'].map(id_map).values.astype(np.int64)
+
         n_nodes = len(id_map)
-        n_edges = len(src)
-        pos = int(y.sum())
-        print(f'[Elliptic++] {n_edges:,} edges | nodes={n_nodes:,} | '
+        n_edges = len(src_int)
+        pos     = int(y.sum())
+        print(f'[Elliptic++] {n_edges:,} edges (wallet graph) | nodes={n_nodes:,} | '
               f'illicit_edges={pos:,} ({100*pos/n_edges:.1f}%) [H]')
 
-        return {'name': 'elliptic_plus', 'scores': scores, 'src': src, 'dst': dst,
+        return {'name': 'elliptic_plus', 'scores': scores, 'src': src_int, 'dst': dst_int,
                 'timestamps': timestamps, 'y': y,
                 'n_nodes': n_nodes, 'n_edges': n_edges, 'delta_L': 2}
 
