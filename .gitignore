@@ -17,3 +17,14 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Stray data dirs at root (artefatos de runs antigas)
+bitcoin_alpha/
+bitcoin_otc/
+dgraph_fin/
+elliptic/
+ethereum_phishing/
+paysim/
+
+# Dataset binários grandes
+*.mat
