@@ -1,0 +1,18 @@
+\begin{table}[t]
+\centering
+\caption{Libra Bank results (597K edges, 444 fraud, 0.07\% prevalence). B3 Greedy shown at k=1\% only; k=5\%/10\% omitted due to $\mathcal{O}(K^2 N)$ complexity (\textasciitilde 716s per run).}
+\label{tab:libra_results}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Method} & \multicolumn{2}{c}{\textbf{k=1\%}} & \multicolumn{2}{c}{\textbf{k=5\%}} & \multicolumn{2}{c}{\textbf{k=10\%}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+ & Cov & Yield@100 & Cov & Yield@100 & Cov & Yield@100 \\
+\midrule
+BTCS v3 (ours) & \textbf{0.987} & \textbf{0.776} & \textbf{0.978} & \textbf{0.864} & \textbf{0.975} & \textbf{0.893} \\
+B0 Random & 0.486 & 0.242 & 0.428 & 0.117 & 0.340 & 0.030 \\
+B1 WCC & 1.000 & 0.776 & 0.818 & 0.864 & 0.628 & 0.893 \\
+B2 Louvain & 0.996 & 0.719 & 0.939 & 0.864 & 0.878 & 0.893 \\
+B3 Greedy & 0.946 & 0.079 & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}

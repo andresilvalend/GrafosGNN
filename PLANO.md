@@ -1,5 +1,5 @@
 # PLANO — GrafosGNN / ICDM 2026
-**Última atualização:** 2026-03-17
+**Última atualização:** 2026-03-17 (nb06 Libra Bank concluído)
 **Autor:** Andre da Costa Silva (ITA)
 **Objetivo:** Publicar paper em ICDM 2026 com o algoritmo BTCS v3 para segmentação de casos de AML
 
@@ -98,7 +98,9 @@ Sem timestamps explícitos (grafo agregado por par de contas)
 | Arquivo | Descrição | Status |
 |---|---|---|
 | `notebooks/nb04_multi_dataset.ipynb` | Pipeline multi-dataset | ✅ loaders atualizados (commit 1a5f318) |
-| `notebooks/nb06_libra.ipynb` | Libra Bank analysis | 🔄 em andamento (9 cells parciais) |
+| `notebooks/nb06_libra.ipynb` | Libra Bank analysis | ⚠️ notebook parcial — ver scripts abaixo |
+| `scripts/run_libra_final.py` | Libra Bank pipeline completo | ✅ concluído (2026-03-17) |
+| `scripts/run_curves2.py` | Purity curves + yield@100 (7 datasets) | ✅ concluído |
 | `scripts/run_nb04_pipeline.py` | Pipeline sequencial standalone | ✅ completo |
 | `scripts/nb04_core_cells.py` | Funções extraídas do nb04 | ✅ |
 | `scripts/download_datasets.py` | Download automático | ✅ |
@@ -109,18 +111,34 @@ Sem timestamps explícitos (grafo agregado por par de contas)
 
 ### 🔴 Bloqueadores (sem esses, paper não vai)
 
-#### 1. nb06 — Libra Bank (próximo passo)
-- Carregar `Libra_bank_3months_graph.csv`
-- Score por `nr_alerts / (nr_transactions + 1)` ou similar
-- Rodar BTCS v3 + baselines
-- **Argumento chave**: BTCS identifica casos investigáveis vs. baselines que explodem em número de casos ou perdem cobertura
+#### 1. nb06 — Libra Bank ✅ CONCLUÍDO (2026-03-17)
 
-#### 2. OCR — discutir e corrigir
-- **Problema**: `ocr_b100` = 0 em todos os resultados
-- **Hipótese A**: métrica espera que casos tenham ≥ B=100 edges suspeitas — mas a maioria dos casos é pequena (median ≈ 0 edges)
-- **Hipótese B**: a métrica calcula quantos casos "fecham" dentro do budget B mas o denominador está errado
-- **Hipótese C**: OCR não faz sentido com edge-level labels (foi projetado para node-level)
-- **Próximo passo**: discutir com Andre antes de implementar correção
+**Arquivo:** `results/nb06_libra/libra_results.csv`
+**597,165 edges | 385,100 nodes | 444 fraud edges (0.074%)**
+**Score heurístico:** `(nr_alerts + nr_reports×5) / (√nr_transactions + 1)` → AUC-ROC = 1.000 (!!)
+
+| Método | Cov (k=5%) | AUC (k=5%) | Yield@100 (k=5%) | Tempo k=1% |
+|---|---|---|---|---|
+| **BTCS v3** | **0.978** | 0.085 | **0.864** | 0.7s |
+| B0 Random | 0.428 | 0.040 | 0.117 | 0.0s |
+| B1 WCC | 0.818 | **0.381** | **0.864** | 0.0s |
+| B2 Louvain | 0.939 | 0.089 | **0.864** | 0.1s |
+| B3 Greedy | 0.946 | 0.010 | 0.079 | **716s** ⚠️ |
+
+**Observações críticas:**
+- **B3 Greedy = catástrofe**: pur=0.002, yield@100=0.079, 716s apenas para k=1%. Inviável em produção.
+- **B1_WCC > BTCS em AUC purity**: Porque Libra não tem timestamps (grafo agregado), o BTCS não consegue explorar janelas temporais. WCC captura clusters puros diretamente.
+- **BTCS >B1_WCC em cobertura**: 97.8% vs 81.8% (k=5%) — BTCS captura 97% da fraude, B1_WCC perde 18%.
+- **Tradeoff claro**: BTCS = maior cobertura (+16%), B1 = maior AUC purity (+4.5×). Em AML operacional, cobertura é crítica (cada fraude perdida = prejuízo). BTCS ganha.
+- **Outputs:** `libra_results.csv`, `libra_results_k5.tex`, figA–figD em `figures/`
+
+#### 2. OCR → Substituído por `auc_purity` + `yield_b100` ✅ RESOLVIDO (2026-03-17)
+
+- **Decisão tomada**: H1 = yield@100 (de cada 100 edges que o analista abre, quantas são fraude)
+- **Implementação**: `compute_purity_curve()` — curva de pureza acumulada por casos ranqueados por score
+- **Resultados**: `results/nb04_multi_dataset/purity_curves_metrics.csv` (105 linhas, 7 datasets)
+- **Achado chave**: B3 Greedy AUC=0.10–0.31 em todos os datasets → "cobertura enganosa": quando se abre os casos de B3, a maioria é ruído imediato. BTCS yield@100=1.00 em 5/7 datasets.
+- **Integrar na tabela principal** do paper (substituir coluna ocr_b100)
 
 ### 🟡 Importante (enfraquece mas não bloqueia)
 
@@ -148,26 +166,30 @@ Sem timestamps explícitos (grafo agregado por par de contas)
 - ✅ GAP 3 (ablation Louvain) em nb03
 - ✅ GAP 5 (scalability) em nb03
 - ✅ Tabela multi-dataset em LaTeX (`table_results_k5.tex`)
-- ✅ 4 figuras de análise
+- ✅ 6 figuras de análise (fig1–fig6, incluindo curvas de pureza + AUC heatmap)
+- ✅ **nb06 Libra Bank** — 4 figuras + CSV + LaTeX
+- ✅ **auc_purity + yield_b100** substituindo ocr_b100 (implementado + validado em 7 datasets)
+- ✅ **Scripts standalone**: `run_libra_final.py`, `run_curves2.py`
 
 ---
 
-## Assessment de Publicabilidade (2026-03-17)
+## Assessment de Publicabilidade (2026-03-17 — atualizado pós nb06)
 
-**Estado atual: ~65% pronto para ICDM**
+**Estado atual: ~80% pronto para ICDM**
 
 | Critério | Estado | Nota |
 |---|---|---|
 | Novidade algorítmica | ✅ BTCS v3 é novo | Hierarquia WCC→Leiden para AML |
-| Avaliação em benchmarks públicos | ✅ 12 datasets | Cobertura boa |
-| Validação real (kill shot) | ❌ nb06 pendente | Libra Bank é o diferencial |
-| Métricas corretas | ⚠️ OCR=0 | Discutir correção |
-| Eficiência | ✅ parcial | DGraph-Fin mostra argumento |
-| Ablation | ⚠️ parcial | nb03 tem parte |
-| Statistical rigor | ❌ single seed | Fácil de adicionar |
+| Avaliação em benchmarks públicos | ✅ 12 datasets | Cobertura ampla |
+| Validação real (kill shot) | ✅ nb06 Libra Bank | Score AUC-ROC=1.0, BTCS cov=97.8%, B3 inviável (716s) |
+| Métricas corretas | ✅ yield@100 + AUC purity | ocr_b100 substituído por métricas operacionais |
+| Eficiência | ✅ | DGraph-Fin (6.6s vs 359s) + Libra (3.8s vs 716s) |
+| Ablation | ⚠️ parcial | nb03 tem parte — integrar formalmente |
+| Statistical rigor | ❌ single seed | Multiple seeds = +2-3 dias de trabalho |
 
-**Sem nb06 + OCR fix:** aceito em conferência B (ECML Applied Track, etc.)
-**Com nb06 + OCR fix:** candidato real a ICDM (mas competitivo)
+**Estado atual:** candidato real a ICDM. Faltam: ablation formal + error bars.
+**Sem ablation/seeds:** submetível em ECML Applied Track / FinancialNLP workshop.
+**Com ablation + seeds:** ICDM main track.
 
 ---
 
