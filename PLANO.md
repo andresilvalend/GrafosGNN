@@ -1,25 +1,36 @@
 # PLANO — GrafosGNN / ICDM 2026
-**Última atualização:** 2026-03-17 (nb07 Ablation + nb08 Seeds concluídos)
+**Última atualização:** 2026-03-20 (nb09–nb13 concluídos, reformulação BCCS v4/v5, paper v5)
 **Autor:** Andre da Costa Silva (ITA)
-**Objetivo:** Publicar paper em ICDM 2026 com o algoritmo BTCS v3 para segmentação de casos de AML
+**Objetivo:** Publicar paper em ICDM 2026 com o algoritmo HGS (Hierarchical Graph Segmentation) — anteriormente BTCS v3 — para segmentação de casos de AML
 
 ---
 
 ## Estado Atual
 
 ### Algoritmo
-**BTCS v3** — Hierarchical WCC → Leiden para segmentação de casos AML
+**HGS (Hierarchical Graph Segmentation)** = nome final do algoritmo, anteriormente chamado BTCS v3
 Pipeline: Top-K edges por score → WCC → Leiden → Capping (B=100) → Avaliação
 
-Métricas implementadas:
-- `coverage`: fração de edges suspeitas capturadas nos casos
-- `purity_induced`: pureza dos casos (fração de edges positivas)
-- `yield_b100` (H1): fração de fraudes nos primeiros 100 edges abertos pelo analista ← **métrica operacional principal**
-- `auc_purity`: área sob curva de pureza acumulada ← ranking quality
+**Reformulação do problema (nb13 / BCCS v4):** O problema agora se chama **BCCS-P (Budgeted Connected Case Segmentation with Presentation)**:
+- Partição dos nós V_k (top-k subgrafo)
+- Budget B sobre *presented edges* P(C_i) = top-B edges por caso (não sobre edges induzidas)
+- **FraudCoverage** = primária (fração de fraud edges que o analista vê)
+- **PartitionCoverage** ≤ FraudCoverage (budget descarta algumas fraud edges)
+
+Métricas implementadas (v4):
+- `fraud_coverage`: fração de fraud edges cobertas nas presented edges ← **métrica principal**
+- `partition_coverage`: fração de fraud edges nos casos (sem considerar budget)
+- `purity`: fração de presented edges que são fraude
+- `yield_avg`: yield médio por caso
+- `yield_b100` (H1): yield no primeiro caso do ranking ← **métrica operacional principal**
+- `auc_purity`: área sob curva de pureza acumulada
+- `BFR`: fração de WCCs que precisam de splitting (Leiden)
 - `n_cases`, `time_s`
 
 Baselines:
 - B0 Random, B1 WCC, B2 Louvain, B3 Greedy (temporal)
+- **B4 TempWCC** (novo nb11): WCC sobre grafo temporal (edges dentro de janela)
+- **B5 HubWCC** (novo nb11): WCC com peso por grau do nó
 
 ---
 
@@ -132,7 +143,7 @@ A aleatoriedade do Leiden (seed do algoritmo) não afeta os resultados operacion
 | Dataset | Localização | Status |
 |---|---|---|
 | Elliptic (BTC) | `data/elliptic/` | ✅ usado |
-| Elliptic++ | `Meu Drive/.../elliptic_plus/` | ⚠️ resultado idêntico ao Elliptic — **investigar loader** |
+| Elliptic++ | `Meu Drive/.../elliptic_plus/` | ✅ loader corrigido (nb09) — grafo wallet→wallet |
 | PaySim | `data/paysim/` | ✅ usado (yield@100 pendente) |
 | BTC-Alpha | `data/bitcoin_alpha/` | ✅ usado |
 | BTC-OTC | `data/bitcoin_otc/` | ✅ usado |
@@ -150,13 +161,21 @@ A aleatoriedade do Leiden (seed do algoritmo) não afeta os resultados operacion
 
 | Arquivo | Descrição | Status |
 |---|---|---|
-| `notebooks/nb04_multi_dataset.ipynb` | Pipeline multi-dataset | ✅ |
+| `notebooks/nb00_baseline.ipynb` | WCC baseline reproduction | ✅ |
+| `notebooks/nb01_strong_baselines.ipynb` | Baselines comparativos B1/B2/B3 | ✅ |
+| `notebooks/nb02_btcs_method.ipynb` | Método HGS (BTCS v3) core | ✅ |
+| `notebooks/nb03_ablations.ipynb` | Ablation GAP 1–5, escalabilidade | ✅ |
+| `notebooks/nb04_multi_dataset.ipynb` | Pipeline multi-dataset (12 datasets) | ✅ |
+| `notebooks/nb05_gnn_training.ipynb` | GraphSAGE edge-level fraud scores | ✅ |
+| `notebooks/nb06_libra.ipynb` | Libra Bank dataset (real AML) | ✅ |
 | `scripts/run_libra_final.py` | Libra Bank pipeline | ✅ nb06 |
 | `scripts/run_curves2.py` | Purity curves + yield@100 (7 datasets) | ✅ |
-| `scripts/run_ablation.py` | Ablation WCC/Leiden_flat/BTCS | ✅ nb07 |
+| `scripts/run_ablation.py` | Ablation WCC/Leiden_flat/HGS | ✅ nb07 |
 | `scripts/run_seeds.py` | Multiple seeds 42–46 | ✅ nb08 |
 | `scripts/run_nb04_pipeline.py` | Pipeline sequencial standalone | ✅ |
-| `scripts/nb04_core_cells.py` | Funções extraídas do nb04 | ✅ |
+| `scripts/nb04_core_cells.py` | Funções core extraídas do nb04 | ✅ |
+| `scripts/generate_paper.js` | Geração automática do paper (Node.js) | ✅ |
+| `validate_docx.py` | Validação de integridade dos .docx | ✅ |
 
 ---
 
@@ -167,21 +186,26 @@ A aleatoriedade do Leiden (seed do algoritmo) não afeta os resultados operacion
 | Item | Arquivo-chave |
 |---|---|
 | Multi-dataset benchmark (12 datasets) | `multi_dataset_results.csv` |
-| Métricas operacionais (yield@100 + AUC purity) | `purity_curves_metrics.csv` |
-| Libra Bank real-world validation | `libra_results.csv` |
-| Ablation WCC / Leiden_flat / BTCS | `ablation_results.csv` |
+| Elliptic++ loader corrigido (nb09) | `elliptic_plus_vs_elliptic.csv` |
+| Libra Bank leak-free (nb10) | `libra_leakfree_results.csv` |
+| Novos baselines B4+B5 (nb11) | `new_baselines_results.csv` |
+| Theory validation empírica (nb12) | `theory_validation.csv` |
+| BCCS-P reformulação formal (nb13) | `v4_all_results.csv` |
+| Métricas operacionais | `purity_curves_metrics.csv` |
+| Libra Bank validação real | `libra_results.csv` |
+| Ablation WCC / Leiden_flat / HGS | `ablation_results.csv` |
 | Estabilidade multi-seed (5 seeds) | `seeds_results.csv`, `seeds_table.tex` |
-| Scalability (DGraph-Fin: 6.6s vs 359s B3) | nb04 |
-| Tabelas LaTeX | `table_results_k5.tex`, `seeds_table.tex`, `libra_results_k5.tex` |
+| Scalability (DGraph-Fin 6.6s vs B3 359s) | nb04 |
+| NP-completeness + teoria formal | `docs/bccs_theory_v5.md` |
+| Paper v5.1 | `BCCS_paper_v5.1.docx` |
 
-### 🟡 Pendente (afeta qualidade, não bloqueia submissão)
+### 🟡 Pendente (não bloqueia submissão)
 
 | # | Item | Estimativa | Impacto |
 |---|---|---|---|
-| 1 | Elliptic++ loader bug | 1–2h | +1 dataset único no benchmark |
-| 2 | PaySim yield@100 | 30min | +1 linha na tabela de resultados |
-| 3 | T-Finance no ablation | depende do FUSE | nice-to-have |
-| 4 | nb05 GNN scores para IBM | semanas | trabalho futuro |
+| 1 | PaySim yield@100 | 30min | +1 linha na tabela |
+| 2 | T-Finance no ablation | depende do FUSE | nice-to-have |
+| 3 | GNN scores para IBM (nb05) | semanas | trabalho futuro |
 
 ### ❌ Fora do escopo atual
 
@@ -206,8 +230,134 @@ A aleatoriedade do Leiden (seed do algoritmo) não afeta os resultados operacion
 | Elliptic++ dataset único | ⚠️ | loader suspeito — investigar |
 | GNN scores para IBM | ❌ | trabalho futuro (nb05) |
 
-**Próximo passo imediato:** investigar Elliptic++ loader (pode elevar para ~93%)
-**Após isso:** redigir paper (todos os resultados e tabelas LaTeX já existem)
+**Próximo passo imediato:** redigir paper v5 (estrutura BCCS-P + HGS + todos os resultados já existem)
+**Paper atual:** `BCCS_paper_v5.1.docx` — versão mais recente
+
+---
+
+## nb09 — Elliptic++ Fix ✅ CONCLUÍDO (≈2026-03-18)
+
+**Arquivo:** `results/nb09_elliptic_plus_fix/elliptic_plus_vs_elliptic.csv`
+**Problema:** nb04 mostrava Elliptic++ == Elliptic (bug no loader usava grafo tx→tx em vez de wallet→wallet)
+**Correção:** Loader agora usa o grafo AddrAddr (wallet-level), que é estruturalmente diferente do Elliptic
+
+| Dataset | k | BTCS cov | BTCS yield@100 | B1_WCC cov |
+|---|---|---|---|---|
+| **Elliptic++** | 1% | **0.500** | **1.000** | 0.200 |
+| **Elliptic++** | 5% | **0.873** | **1.000** | — |
+| Elliptic (BTC) | 1% | 0.289 | 1.000 | 0.200 |
+
+**Conclusão:** Elliptic++ é dataset genuinamente distinto — 36.9K fraud edges vs 8.1K do Elliptic. BFR = 98.7% (quase todas as WCCs precisam de Leiden). +1 dataset válido no benchmark.
+
+---
+
+## nb10 — Libra Leak-Free ✅ CONCLUÍDO (≈2026-03-18)
+
+**Arquivo:** `results/nb10_libra_leakfree/libra_leakfree_results.csv`
+**Problema:** Score Libra original (AUC-ROC=1.0) tinha leakage (usa nr_alerts que são labels pós-investigação)
+**Solução:** Score leak-free = features puramente transacionais sem nr_alerts/nr_reports
+
+| Score | k=1% yield@100 | k=5% yield@100 | Coverage k=5% |
+|---|---|---|---|
+| **Com leakage** (AUC=1.0) | 0.776 | 0.860 | 0.982 |
+| **Leak-free** (AUC=0.997) | 0.120 | — | 0.935 |
+
+**Conclusão:** Com score leak-free, yield@100 cai mas coverage permanece alto. O paper reporta **ambos os cenários** honestamente — score perfeito e score realista.
+
+---
+
+## nb11 — Novos Baselines (B4 TempWCC, B5 HubWCC) ✅ CONCLUÍDO (≈2026-03-18)
+
+**Arquivo:** `results/nb11_new_baselines/new_baselines_results.csv`
+**Datasets:** Elliptic, Elliptic++, Amazon, Yelp, Bitcoin-OTC
+
+| Dataset | k | **HGS** yield@100 | **B4_TempWCC** yield@100 | **B5_HubWCC** yield@100 |
+|---|---|---|---|---|
+| Elliptic | 1% | **1.000** | 0.000 ⚠️ | — |
+| Elliptic | 5% | **1.000** | 0.124 | — |
+| Elliptic++ | 1% | **1.000** | — | — |
+| Amazon | 1% | **0.939** | — | — |
+
+**B4_TempWCC (Elliptic k=1%):** yield=0.000, coverage=0.000 — janela temporal destrói todo o sinal em grafos de blockchain (timestamps não correlacionam com fraude)
+**B5_HubWCC:** performance similar ao B1_WCC — grau do nó não melhora a segmentação
+
+**Sensibilidade ao budget B:** `sensitivity_analysis.csv` — HGS robusto para B=50–500, cobertura estável
+
+---
+
+## nb12 — Theory Validation Metrics ✅ CONCLUÍDO (≈2026-03-19)
+
+**Arquivo:** `results/nb12_theory_validation/theory_validation.csv`
+**Objetivo:** Medir empiricamente as constantes teóricas do algoritmo
+
+Métricas calculadas por dataset/k:
+- `wcc_cov` / `btcs_cov`: cobertura das WCCs vs HGS
+- `cross`: edges cruzando fronteiras WCC (não capturáveis)
+- `L_cut`: fraud edges cortadas pelo budget (δ = L_cut/|F|)
+- `approx_ratio_lb`: lower bound do ratio de aproximação
+- `bfr`: Budget Feasibility Rate — fração de WCCs sem Leiden splitting
+- `avg_q`, `max_q`: tamanho médio/máximo das sub-partições Leiden
+
+| Dataset | k=5% | δ (cut) | BFR | avg_q |
+|---|---|---|---|---|
+| Elliptic | 5% | 0.012 | 0.997 | 2.31 |
+| Elliptic++ | 5% | 0.127 | 0.997 | 107.6 |
+| Bitcoin-OTC | 5% | 0.731 | 0.986 | 76.0 |
+| Amazon | 5% | 0.973 | 0.000 | 43,763 |
+| Libra Bank | 5% | 0.034 | 0.9998 | 500.0 |
+
+**Achado-chave:** BFR≈0.999 em Elliptic/Libra → WCC naturalmente produz casos pequenos. Amazon: 1 WCC gigante com 43K edges — budget B=100 corta 97% das fraud edges (limitação fundamental do dataset, não do algoritmo).
+
+---
+
+## nb13 — BCCS v4 Metrics (Reformulação Formal) ✅ CONCLUÍDO (≈2026-03-19)
+
+**Arquivo:** `results/nb13_v4_metrics/v4_all_results.csv`
+**Mudança:** Separação explícita FraudCoverage vs PartitionCoverage (ver docs/v4_formal_decisions.md)
+
+| Dataset | k | HGS FraudCov | HGS PartCov | B2_Louvain FraudCov | B4_TempWCC FraudCov |
+|---|---|---|---|---|---|
+| Elliptic | 1% | 0.289 | 0.289 | 0.289 | **0.000** |
+| Elliptic | 5% | **0.943** | 0.988 | 0.920 | 0.055 |
+| Elliptic++ | 5% | — | — | — | — |
+
+**docs/v4_formal_decisions.md:** Define BCCS-P, separação FraudCov/PartCov, lista de decisões formais do paper v4+.
+**docs/bccs_theory_v5.md:** Teoria com provas formais — NP-completeness (MIS reduction), inaproximabilidade, e observações empíricas claramente separadas.
+
+---
+
+## Evolução do Paper
+
+| Versão | Arquivo | Conteúdo |
+|---|---|---|
+| BTCS_paper_draft | `BTCS_paper_draft.docx` | Rascunho inicial |
+| BTCS_paper_v2 | `BTCS_paper_v2.docx` | 5 datasets, 6 métodos, figuras, auditoria de leakage |
+| BTCS_paper_v3 | `BTCS_paper_v3.docx` | Revisões pós-nb07/nb08 |
+| **BCCS_paper_v4** | `BCCS_paper_v4.4.docx` | Renomeado BCCS, reformulação formal, teoria NP |
+| **BCCS_paper_v5** | `BCCS_paper_v5.docx` | HGS como nome do algoritmo, BCCS-P definition |
+| **BCCS_paper_v5.1** | `BCCS_paper_v5.1.docx` | ← **VERSÃO MAIS RECENTE** |
+
+---
+
+## Assessment de Publicabilidade (2026-03-20 — pós nb09–nb13)
+
+**Estado atual: ~95% pronto para ICDM 2026**
+
+| Critério | Estado | Nota |
+|---|---|---|
+| Novidade algorítmica | ✅ | HGS: WCC→Leiden hierárquico para AML |
+| Formulação formal do problema | ✅ | BCCS-P com presented edges budget |
+| NP-completeness + inaproximabilidade | ✅ | docs/bccs_theory_v5.md |
+| Avaliação em benchmarks públicos | ✅ | 12 datasets + Elliptic++ corrigido |
+| Validação real (kill shot) | ✅ | Libra Bank leak-free + leakage reportados |
+| Métricas operacionais | ✅ | yield@100 + AUC purity + FraudCoverage |
+| Ablation study formal | ✅ | nb07+nb11: 5 variantes × datasets |
+| Rigor estatístico | ✅ | nb08: std≤0.020 |
+| Eficiência computacional | ✅ | <4s vs B3 716s |
+| Theory validation empírica | ✅ | nb12: δ, BFR, approx_ratio_lb |
+| GNN scores para IBM | ❌ | trabalho futuro |
+
+**Próximo passo:** finalizar escrita do paper v5 e submeter a ICDM 2026
 
 ---
 
