@@ -152,6 +152,64 @@ Usar sempre essas definições. Não improvise variações.
 3. Mensagem de commit descritiva com o que foi feito
 4. `git push origin main`
 
+### Ao salvar log de sessão (obrigatório — ver seção abaixo):
+1. Escreva `sessions/YYYY-MM-DD_tema.md` com o resumo da sessão
+2. `git add sessions/YYYY-MM-DD_tema.md` + qualquer outro arquivo alterado
+3. `git push origin main`
+
+---
+
+## Registro de Sessões — Regra Obrigatória
+
+**Ao final de cada análise significativa, ou a cada ~1h de trabalho, salve um log de sessão.**
+
+O objetivo é que a próxima sessão possa reconstruir o raciocínio sem depender da memória do Claude.
+
+### Quando salvar:
+- Ao concluir qualquer experimento (rodou código, gerou CSV)
+- Ao tomar uma decisão importante (mudança de métrica, reformulação, escolha de baseline)
+- Ao editar o paper com novos resultados
+- Antes de encerrar a sessão
+
+### Formato do arquivo: `sessions/YYYY-MM-DD_tema-curto.md`
+
+Exemplos: `sessions/2026-03-20_elliptic-plus-fix.md`, `sessions/2026-03-20_paper-v5.md`
+
+### Template obrigatório:
+
+```markdown
+# Sessão YYYY-MM-DD — [Tema]
+
+## O que foi feito
+- [lista do que foi executado/alterado]
+
+## Decisões tomadas
+- [decisão]: [motivo] — isso é crítico para não repetir discussões
+
+## Resultados novos
+| Experimento | Métrica | Valor | Arquivo |
+|---|---|---|---|
+| ... | ... | ... | results/... |
+
+## Problemas encontrados
+- [problema]: [como foi resolvido ou status]
+
+## Próximos passos
+- [ ] [tarefa concreta com arquivo/notebook alvo]
+
+## Arquivos alterados nesta sessão
+- `arquivo.py` — [o que mudou]
+- `results/nbXX/...csv` — [novo resultado]
+```
+
+### Regra de commit do log:
+Sempre commitar o log junto com os arquivos da sessão num único commit:
+```
+git add sessions/YYYY-MM-DD_tema.md results/... notebooks/...
+git commit -m "session YYYY-MM-DD: [tema] — [resumo de 1 linha]"
+git push origin main
+```
+
 ---
 
 ## O Que Não Fazer
