@@ -198,14 +198,17 @@ A aleatoriedade do Leiden (seed do algoritmo) não afeta os resultados operacion
 | Scalability (DGraph-Fin 6.6s vs B3 359s) | nb04 |
 | NP-completeness + teoria formal | `docs/bccs_theory_v5.md` |
 | Paper v5.1 | `BCCS_paper_v5.1.docx` |
+| PaySim yield@100 (nb14) | `results/nb14_improvements/nb14_paysim_results.csv` |
+| HGS_v2 algorithm analysis (nb14) | `results/nb14_improvements/nb14_improvements_results.csv` |
 
 ### 🟡 Pendente (não bloqueia submissão)
 
 | # | Item | Estimativa | Impacto |
 |---|---|---|---|
-| 1 | PaySim yield@100 | 30min | +1 linha na tabela |
+| 1 | ~~PaySim yield@100~~ **CONCLUÍDO** | — | yield@100=0.000 (score heurístico não captura fraude, mesmo problema IBM) |
 | 2 | T-Finance no ablation | depende do FUSE | nice-to-have |
 | 3 | GNN scores para IBM (nb05) | semanas | trabalho futuro |
+| 4 | NC cap com GNN scores (Elliptic++) | depende do FUSE | melhoria potencial fraud_cov 0.434→? |
 
 ### ❌ Fora do escopo atual
 
@@ -323,6 +326,55 @@ Métricas calculadas por dataset/k:
 
 **docs/v4_formal_decisions.md:** Define BCCS-P, separação FraudCov/PartCov, lista de decisões formais do paper v4+.
 **docs/bccs_theory_v5.md:** Teoria com provas formais — NP-completeness (MIS reduction), inaproximabilidade, e observações empíricas claramente separadas.
+
+---
+
+## nb14 — HGS Algorithm Improvements Analysis ✅ CONCLUÍDO (2026-03-26)
+
+**Arquivo:** `results/nb14_improvements/nb14_improvements_results.csv`
+**Notebook:** `notebooks/nb14_algorithm_improvements.ipynb`
+**Script:** em `/sessions/sweet-friendly-goldberg/run_nb14.py` (mover para `scripts/run_nb14.py`)
+
+### Melhorias Testadas
+
+| Variante | Descrição | Resultado |
+|---|---|---|
+| **HGS_v2_NC** | Budget cap greedy por cobertura de nós (em vez de top-B por score) | **= baseline** com scores oracle |
+| **HGS_v2_SW** | Leiden com pesos por score no grafo Lk | **-0.009** fraud_cov em Elliptic k=5% |
+| **HGS_v2_BOTH** | NC + SW combinados | = SW (NC não interfere) |
+
+### Resultados Comparativos (Elliptic + Bitcoin-OTC)
+
+| Dataset | k | HGS_baseline | HGS_v2_NC | HGS_v2_SW | Δ_NC |
+|---|---|---|---|---|---|
+| Elliptic | 1% | 0.2886 | 0.2886 | 0.2886 | +0.0000 |
+| Elliptic | 5% | 0.9425 | 0.9425 | 0.9335 | +0.0000 |
+| Bitcoin-OTC | 1% | 0.0629 | 0.0629 | 0.0629 | +0.0000 |
+| Bitcoin-OTC | 5% | 0.2439 | 0.2439 | 0.2439 | +0.0000 |
+
+### PaySim yield@100 — NOVO RESULTADO
+
+**Arquivo:** `results/nb14_improvements/nb14_paysim_results.csv`
+
+| k | fraud_coverage | yield@100 | auc_purity | n_cases | tempo |
+|---|---|---|---|---|---|
+| 1% | 0.251 | **0.000** | 0.062 | 44,807 | 0.5s |
+| 5% | 0.470 | **0.000** | 0.035 | 156,678 | 2.2s |
+| 10% | 0.558 | **0.000** | 0.026 | 247,350 | 4.5s |
+
+**Conclusão:** yield@100=0.000 — score heurístico (type_risk × amount) não captura fraude no PaySim. Mesmo padrão dos datasets IBM. Confirma necessidade de GNN scores (trabalho futuro).
+
+### Diagnóstico Principal (finding novo para o paper)
+
+**Problema descoberto:** Budget cap top-B por score cria bias sistemático contra fraud edges quando o score é imperfeito:
+- **Elliptic++ k=5%:** `partition_coverage=0.873` mas `fraud_coverage=0.434`
+- **Causa:** fraud edges dentro de uma comunidade têm scores MENORES que edges de ruído → cap remove preferencialmente fraudes
+- **Quantificação:** 16.219 fraud edges na partição correta mas cortadas pelo budget cap
+- Fraud edges são **8x overrepresentadas** nos edges cortados (7.99% vs 1.04% base rate)
+
+**Solução (NC cap):** demonstra melhoria teórica com scores imperfeitos (experimentalmente validado com scores oracles como sanidade, precisa ser testado com Elliptic++ via GNN scores)
+
+**Nota:** SW (Score-Weighted Leiden) é contra-indicado — com scores oracle cria super-clustering que reduz qualidade das comunidades.
 
 ---
 
